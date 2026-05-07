@@ -6,6 +6,18 @@ import type {
 } from './types';
 
 // ── Task API ──
+export async function getTask(id: string): Promise<Task | null> {
+  return invoke('get_task', { id });
+}
+
+export async function getSubtasks(parentId: string): Promise<Task[]> {
+  return invoke('get_subtasks', { parentId });
+}
+
+export async function searchTasks(query: string): Promise<Task[]> {
+  return invoke('search_tasks', { query });
+}
+
 export async function createTask(input: CreateTaskInput): Promise<Task> {
   return invoke('create_task', { input });
 }
@@ -30,7 +42,7 @@ export async function deleteTask(id: string): Promise<void> {
   return invoke('delete_task', { id });
 }
 
-export async function completeTask(id: string): Promise<void> {
+export async function completeTask(id: string): Promise<Task | null> {
   return invoke('complete_task', { id });
 }
 

@@ -4,7 +4,9 @@ import * as api from '../lib/api';
 
 interface TaskState {
   tasks: Task[];
+  subtasks: Task[];
   loading: boolean;
+  selectedTaskId: string | null;
   filter: {
     listId: string | null;
     status: string;
@@ -20,11 +22,25 @@ interface TaskState {
   toggleComplete: (id: string) => Promise<void>;
   setFilter: (filter: Partial<TaskState['filter']>) => void;
   clearFilter: () => void;
+
+  // Selection
+  selectTask: (id: string) => void;
+  clearSelection: () => void;
+
+  // Subtasks
+  fetchSubtasks: (parentId: string) => Promise<void>;
+  addSubtask: (parentId: string, title: string) => Promise<void>;
+  removeSubtask: (id: string) => Promise<void>;
+
+  // Search
+  searchTasks: (query: string) => Promise<Task[]>;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
+  subtasks: [],
   loading: false,
+  selectedTaskId: null,
   filter: {
     listId: null,
     status: 'active',
@@ -112,16 +128,34 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   removeTask: async (id) => {
     await api.deleteTask(id);
-    set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
+    set((s) => ({
+      tasks: s.tasks.filter((t) => t.id !== id),
+      subtasks: s.subtasks.filter((t) => t.id !== id),
+    }));
   },
 
   toggleComplete: async (id) => {
-    await api.completeTask(id);
-    set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === id ? { ...t, status: 'done' as const, completed_at: new Date().toISOString() } : t
-      ),
-    }));
+    const result = await api.completeTask(id);
+    if (result) {
+      // Recurring task: update the task in the list with the new state
+      set((s) => ({
+        tasks: s.tasks.map((t) => (t.id === id ? result : t)),
+        subtasks: s.subtasks.map((t) => (t.id === id ? result : t)),
+      }));
+      // Re-fetch subtasks if this was a subtask being toggled
+      if (result.parent_id) {
+        get().fetchSubtasks(result.parent_id);
+      }
+    } else {
+      set((s) => ({
+        tasks: s.tasks.map((t) =>
+          t.id === id ? { ...t, status: 'done' as const, completed_at: new Date().toISOString() } : t
+        ),
+        subtasks: s.subtasks.map((t) =>
+          t.id === id ? { ...t, status: 'done' as const, completed_at: new Date().toISOString() } : t
+        ),
+      }));
+    }
   },
 
   setFilter: (partial) =>
@@ -131,4 +165,41 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({
       filter: { listId: null, status: 'active', priority: null, smartFilter: null, searchQuery: '' },
     }),
+
+  // Selection
+  selectTask: (id: string) => set({ selectedTaskId: id }),
+  clearSelection: () => set({ selectedTaskId: null, subtasks: [] }),
+
+  // Subtasks
+  fetchSubtasks: async (parentId: string) => {
+    try {
+      const subtasks = await api.getSubtasks(parentId);
+      set({ subtasks });
+    } catch (e) {
+      console.error('fetchSubtasks error:', e);
+    }
+  },
+
+  addSubtask: async (parentId: string, title: string) => {
+    try {
+      const task = await api.createTask({ title, parent_id: parentId, priority: 2 });
+      set((s) => ({ subtasks: [...s.subtasks, task] }));
+    } catch (e) {
+      console.error('addSubtask error:', e);
+    }
+  },
+
+  removeSubtask: async (id: string) => {
+    try {
+      await api.deleteTask(id);
+      set((s) => ({ subtasks: s.subtasks.filter((t) => t.id !== id) }));
+    } catch (e) {
+      console.error('removeSubtask error:', e);
+    }
+  },
+
+  // Search
+  searchTasks: async (query: string) => {
+    return api.searchTasks(query);
+  },
 }));
