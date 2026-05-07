@@ -1,10 +1,10 @@
 use rusqlite::{Connection, Result as SqliteResult};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 pub struct Database {
-    pub conn: Mutex<Connection>,
+    pub conn: Arc<Mutex<Connection>>,
 }
 
 impl Database {
@@ -14,7 +14,7 @@ impl Database {
         let conn = Connection::open(&db_path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
         let db = Database {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         };
         db.run_migrations()?;
         Ok(db)

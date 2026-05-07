@@ -279,7 +279,7 @@ pub fn delete_task(db: State<Database>, id: String) -> Result<(), String> {
 ///   - "weekdays" -> next weekday (skips weekends)
 ///   - "N days" / "every N days" -> +N days
 fn calc_next_due(current_due: Option<&str>, rule: &str) -> Option<String> {
-    use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike, Weekday};
+    use chrono::{Datelike, Duration, NaiveDate, Timelike, Weekday};
 
     let rule = rule.trim().to_lowercase();
 
