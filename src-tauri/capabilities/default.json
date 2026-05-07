@@ -4,7 +4,6 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "sql:default",
     "notification:default",
     "global-shortcut:default"
   ]
