@@ -1,24 +1,21 @@
 use crate::db::Database;
 use chrono::Utc;
+use std::thread;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
-use tokio::time::{interval, Duration};
 
 /// Start the background reminder poller.
 /// Checks every 30 seconds for tasks with reminder_time <= now() that are not yet done.
 pub fn start_reminder_poller(app_handle: AppHandle) {
     let db = app_handle.state::<Database>();
-    // Clone the inner Arc<Mutex<Connection>> for use in the background thread
     let conn = db.conn.clone();
 
-    tokio::spawn(async move {
-        let mut tick = interval(Duration::from_secs(30));
+    thread::spawn(move || {
         // Skip the first immediate tick
-        tick.tick().await;
+        thread::sleep(Duration::from_secs(30));
 
         loop {
-            tick.tick().await;
-
             let now = Utc::now().to_rfc3339();
 
             let triggered: Vec<(String, String)> = match conn.lock() {
@@ -27,7 +24,10 @@ pub fn start_reminder_poller(app_handle: AppHandle) {
                         "SELECT id, title FROM tasks WHERE reminder_time IS NOT NULL AND reminder_time <= ?1 AND status != 'done' AND status != 'archived'"
                     ) {
                         Ok(s) => s,
-                        Err(_) => continue,
+                        Err(_) => {
+                            thread::sleep(Duration::from_secs(30));
+                            continue;
+                        }
                     };
 
                     let rows = stmt.query_map(rusqlite::params![now], |row| {
@@ -50,14 +50,19 @@ pub fn start_reminder_poller(app_handle: AppHandle) {
 
                             results
                         }
-                        Err(_) => continue,
+                        Err(_) => {
+                            thread::sleep(Duration::from_secs(30));
+                            continue;
+                        }
                     }
                 }
-                Err(_) => continue,
+                Err(_) => {
+                    thread::sleep(Duration::from_secs(30));
+                    continue;
+                }
             };
 
             for (_task_id, title) in &triggered {
-                // Send system notification
                 let _ = app_handle
                     .notification()
                     .builder()
@@ -67,9 +72,10 @@ pub fn start_reminder_poller(app_handle: AppHandle) {
             }
 
             if !triggered.is_empty() {
-                // Notify the frontend to refresh
                 let _ = app_handle.emit("reminder-triggered", true);
             }
+
+            thread::sleep(Duration::from_secs(30));
         }
     });
 }

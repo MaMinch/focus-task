@@ -19,7 +19,7 @@ pub fn run() {
             use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
             let app_handle = app.handle().clone();
             let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyN);
-            app_handle.global_shortcut().on_shortcut(shortcut, move |app, _sc, event| {
+            let _ = app_handle.global_shortcut().on_shortcut(shortcut, move |app, _sc, event| {
                 if event.state == ShortcutState::Pressed {
                     let _ = app.emit("quick-add", true);
                 }
