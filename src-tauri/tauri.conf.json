@@ -1,5 +1,4 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicknisi/tauri-config-schema/refs/heads/main/src/config.schema.json",
   "productName": "FocusTask",
   "version": "0.1.0",
   "identifier": "com.focustask.app",
@@ -10,7 +9,6 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
-    "title": "FocusTask",
     "windows": [
       {
         "title": "FocusTask",
@@ -26,16 +24,7 @@
     }
   },
   "plugins": {
-    "sql": {
-      "preload": {
-        "db": "sqlite:focus-task.db"
-      }
-    },
-    "notification": {
-      "all": true
-    },
-    "global-shortcut": {
-      "autoRegister": true
-    }
+    "notification": {},
+    "global-shortcut": {}
   }
 }
