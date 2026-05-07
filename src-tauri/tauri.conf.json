@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicknisi/tauri-config-schema/refs/heads/main/src/config.schema.json",
+  "productName": "FocusTask",
+  "version": "0.1.0",
+  "identifier": "com.focustask.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "title": "FocusTask",
+    "windows": [
+      {
+        "title": "FocusTask",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 500,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "sql": {
+      "preload": {
+        "db": "sqlite:focus-task.db"
+      }
+    },
+    "notification": {
+      "all": true
+    },
+    "global-shortcut": {
+      "autoRegister": true
+    }
+  }
+}

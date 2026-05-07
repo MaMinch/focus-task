@@ -1,0 +1,11 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for FocusTask",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "sql:default",
+    "notification:default",
+    "global-shortcut:default"
+  ]
+}
