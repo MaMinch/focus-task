@@ -63,6 +63,23 @@ export async function deleteList(id: string): Promise<void> {
   return invoke('delete_list', { id });
 }
 
+export async function updateTaskOrder(items: { id: string; sort_order: number }[]): Promise<void> {
+  return invoke('update_task_order', { items });
+}
+
+// ── Import / Export ──
+export async function exportAllJson(): Promise<string> {
+  return invoke('export_all_json');
+}
+
+export async function importJson(jsonData: string): Promise<string> {
+  return invoke('import_json', { jsonData });
+}
+
+export async function exportCsv(): Promise<string> {
+  return invoke('export_csv');
+}
+
 export async function archiveList(id: string): Promise<void> {
   return invoke('archive_list', { id });
 }

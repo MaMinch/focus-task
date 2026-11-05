@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useListStore } from '../../stores/listStore';
 import { useTaskStore } from '../../stores/taskStore';
+import { useViewStore } from '../../stores/viewStore';
 import { SMART_LISTS } from '../../lib/types';
 
-export default function Sidebar() {
+interface Props {
+  onOpenSettings?: () => void;
+}
+
+export default function Sidebar({ onOpenSettings }: Props) {
   const { lists, selectedListId, fetchLists, selectList, addList } = useListStore();
   const { filter, setFilter } = useTaskStore();
+  const { mode, setMode } = useViewStore();
   const [showAddList, setShowAddList] = useState(false);
   const [newListName, setNewListName] = useState('');
 
@@ -15,11 +21,13 @@ export default function Sidebar() {
 
   const handleSmartListClick = (_smartId: string, filterType: string) => {
     selectList(null);
+    setMode('list');
     setFilter({ smartFilter: filterType, listId: null, status: 'all' });
   };
 
   const handleListClick = (listId: string) => {
     selectList(listId);
+    setMode('list');
     setFilter({ listId, smartFilter: null });
   };
 
@@ -40,6 +48,22 @@ export default function Sidebar() {
         <h1 className="text-lg font-bold text-primary-600 dark:text-primary-400">
           🎯 FocusTask
         </h1>
+      </div>
+
+      {/* Notebook */}
+      <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700">
+        <button
+          onClick={() => { setMode('notebook'); selectList(null); }}
+          className={`w-full text-left px-3 py-1.5 rounded-md text-sm mb-0.5 transition-colors flex items-center gap-2 ${
+            mode === 'notebook'
+              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+          }`}
+        >
+          <span>📓</span>
+          <span>笔记本</span>
+          <span className="ml-auto text-[10px] text-purple-400">Ctrl+M</span>
+        </button>
       </div>
 
       {/* Smart lists */}
@@ -116,8 +140,18 @@ export default function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-400">
-        v0.1.0 · M1
+      <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <span className="text-xs text-slate-400">v0.1.0 · M4</span>
+        <button
+          onClick={onOpenSettings}
+          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
+          title="设置 (Ctrl+,)"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
       </div>
     </div>
   );

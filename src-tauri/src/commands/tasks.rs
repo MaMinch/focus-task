@@ -51,7 +51,7 @@ pub struct UpdateTaskInput {
     pub sort_order: Option<f64>,
 }
 
-fn row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
+pub fn row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
     Ok(Task {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -257,6 +257,25 @@ pub fn update_task(db: State<Database>, input: UpdateTaskInput) -> Result<(), St
             rusqlite::params![so, now, input.id]).map_err(|e| e.to_string())?;
     }
 
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TaskOrderItem {
+    pub id: String,
+    pub sort_order: f64,
+}
+
+#[tauri::command]
+pub fn update_task_order(db: State<Database>, items: Vec<TaskOrderItem>) -> Result<(), String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    for item in &items {
+        conn.execute(
+            "UPDATE tasks SET sort_order = ?1 WHERE id = ?2",
+            rusqlite::params![item.sort_order, item.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 

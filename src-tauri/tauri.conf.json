@@ -1,7 +1,7 @@
 {
   "productName": "FocusTask",
   "version": "0.1.0",
-  "identifier": "com.focustask.app",
+  "identifier": "com.focustask.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -22,6 +22,34 @@
     "security": {
       "csp": null
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": ""
+    },
+    "resources": [],
+    "copyright": "",
+    "shortDescription": "轻量、高效、完全离线可用的个人桌面待办管理工具",
+    "longDescription": "FocusTask 是一款离线优先的个人桌面待办管理工具，支持任务管理、清单组织、看板/日历多视图、全文搜索、拖拽排序等功能。"
   },
   "plugins": {
     "notification": null,

@@ -55,6 +55,18 @@ pub fn create_list(db: State<Database>, input: CreateListInput) -> Result<TaskLi
     })
 }
 
+pub fn row_to_list(row: &rusqlite::Row) -> rusqlite::Result<TaskList> {
+    Ok(TaskList {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        color: row.get(2)?,
+        icon: row.get(3)?,
+        sort_order: row.get(4)?,
+        archived: row.get::<_, i32>(5)? != 0,
+        created_at: row.get(6)?,
+    })
+}
+
 #[tauri::command]
 pub fn get_lists(db: State<Database>, include_archived: Option<bool>) -> Result<Vec<TaskList>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;

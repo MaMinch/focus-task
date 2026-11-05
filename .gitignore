@@ -29,3 +29,22 @@ src-tauri/Cargo.lock
 *.db
 *.db-journal
 *.db-wal
+
+# === 临时排除：src/ 下误拷贝的整份项目副本（复制于 2026-05-08，根目录版本更新，勿提交）===
+# 文件仍保留在磁盘上，确认无用后可直接删除；若需恢复提交，删掉本段即可
+/src/.git/
+/src/.gitignore
+/src/README.md
+/src/package.json
+/src/package-lock.json
+/src/index.html
+/src/eslint.config.js
+/src/postcss.config.js
+/src/tailwind.config.js
+/src/vite.config.ts
+/src/tsconfig.json
+/src/tsconfig.app.json
+/src/tsconfig.node.json
+/src/public/
+/src/src/
+/src/src-tauri/

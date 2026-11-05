@@ -6,10 +6,13 @@ interface TaskItemProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (task: Task) => void;
+  onDragStart?: (e: React.DragEvent, task: Task) => void;
+  onDragOver?: (e: React.DragEvent, task: Task) => void;
+  onDrop?: (e: React.DragEvent, task: Task) => void;
   compact?: boolean;
 }
 
-export default function TaskItem({ task, onToggle, onDelete, onEdit, compact = false }: TaskItemProps) {
+export default function TaskItem({ task, onToggle, onDelete, onEdit, onDragStart, onDragOver, onDrop, compact = false }: TaskItemProps) {
   const priorityConf = PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG[2];
   const isDone = task.status === 'done';
   const tags: string[] = (() => {
@@ -31,11 +34,33 @@ export default function TaskItem({ task, onToggle, onDelete, onEdit, compact = f
 
   return (
     <div
+      draggable={!compact}
+      onDragStart={(e) => onDragStart?.(e, task)}
+      onDragOver={(e) => { e.preventDefault(); onDragOver?.(e, task); }}
+      onDrop={(e) => { e.preventDefault(); onDrop?.(e, task); }}
       onClick={() => onEdit(task)}
       className={`group flex items-start gap-3 px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
         isDone ? 'opacity-60' : ''
       } ${compact ? 'px-2 py-1.5' : ''}`}
     >
+      {/* Drag handle */}
+      {!compact && (
+        <span
+          className="mt-0.5 text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          title="拖拽排序"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+            <circle cx="6" cy="3" r="1.5" />
+            <circle cx="10" cy="3" r="1.5" />
+            <circle cx="6" cy="8" r="1.5" />
+            <circle cx="10" cy="8" r="1.5" />
+            <circle cx="6" cy="13" r="1.5" />
+            <circle cx="10" cy="13" r="1.5" />
+          </svg>
+        </span>
+      )}
+
       {/* Checkbox */}
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
@@ -60,19 +85,15 @@ export default function TaskItem({ task, onToggle, onDelete, onEdit, compact = f
           >
             {task.title}
           </span>
-          {/* Priority badge */}
           <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} px-1.5 py-0.5 rounded font-medium ${priorityConf.textColor} bg-slate-100 dark:bg-slate-800`}>
             {priorityConf.label}
           </span>
-          {/* Repeat indicator */}
           {task.repeat_rule && (
             <span className="text-[10px] text-primary-500" title="重复任务">🔄</span>
           )}
-          {/* Sub-task indicator */}
           {task.parent_id && (
             <span className="text-[10px] text-slate-400" title="子任务">↳</span>
           )}
-          {/* Due date */}
           {dueDate && (
             <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} ${dueDate.isOverdue ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
               📅 {dueDate.text}
@@ -80,7 +101,6 @@ export default function TaskItem({ task, onToggle, onDelete, onEdit, compact = f
           )}
         </div>
 
-        {/* Tags */}
         {tags.length > 0 && !compact && (
           <div className="flex gap-1 mt-1 flex-wrap">
             {tags.map((tag) => (

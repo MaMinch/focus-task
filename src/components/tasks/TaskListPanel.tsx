@@ -1,30 +1,56 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { useTaskStore } from '../../stores/taskStore';
 import { useListStore } from '../../stores/listStore';
+import { useViewStore } from '../../stores/viewStore';
+import * as api from '../../lib/api';
+import type { Task } from '../../lib/types';
 import TaskItem from './TaskItem';
 import TaskInput from './TaskInput';
 import TaskEditPanel from './TaskEditPanel';
 import QuickAdd from './QuickAdd';
+import ViewSwitcher from '../views/ViewSwitcher';
+import BoardView from '../views/BoardView';
+import CalendarView from '../views/CalendarView';
+import TagFilter from './TagFilter';
+import CommandPalette from '../CommandPalette';
 
 export default function TaskListPanel() {
-  const { tasks, loading, filter, selectedTaskId, fetchTasks, addTask, removeTask, toggleComplete, selectTask, searchTasks } = useTaskStore();
+  const {
+    tasks, loading, filter, selectedTaskId,
+    fetchTasks, addTask, removeTask, toggleComplete, selectTask,
+    searchTasks, editTask,
+  } = useTaskStore();
   const { selectedListId, lists } = useListStore();
+  const { mode: viewMode } = useViewStore();
+
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<typeof tasks>([]);
+  const [searchResults, setSearchResults] = useState<Task[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [dragTask, setDragTask] = useState<Task | null>(null);
 
   useEffect(() => {
     fetchTasks();
   }, [filter.listId, filter.smartFilter, filter.status, filter.priority, fetchTasks]);
 
-  // Listen for global shortcut event
   useEffect(() => {
     const unlisten = listen('quick-add', () => {
       setShowQuickAdd(true);
     });
     return () => { unlisten.then((fn) => fn()); };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   const selectedList = lists.find((l) => l.id === selectedListId);
@@ -86,6 +112,58 @@ export default function TaskListPanel() {
     setIsSearching(false);
   }, [searchTasks]);
 
+  // ── Native HTML5 Drag & Drop sorting ──
+  const handleDragStart = (_e: React.DragEvent, task: Task) => {
+    setDragTask(task);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetTask: Task) => {
+    e.preventDefault();
+    if (!dragTask || dragTask.id === targetTask.id) {
+      setDragTask(null);
+      return;
+    }
+
+    const activeTasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'archived');
+    const oldIndex = activeTasks.findIndex((t) => t.id === dragTask.id);
+    const newIndex = activeTasks.findIndex((t) => t.id === targetTask.id);
+    if (oldIndex === -1 || newIndex === -1) {
+      setDragTask(null);
+      return;
+    }
+
+    // Reorder
+    const reordered = [...activeTasks];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    const orderItems = reordered.map((t, i) => ({
+      id: t.id,
+      sort_order: (i + 1) * 10.0,
+    }));
+
+    // Optimistic update
+    const updatedMap = new Map(orderItems.map((o) => [o.id, o.sort_order]));
+    for (const t of tasks) {
+      if (updatedMap.has(t.id)) {
+        await editTask(t.id, { sort_order: updatedMap.get(t.id) });
+      }
+    }
+
+    try {
+      await api.updateTaskOrder(orderItems);
+    } catch (err) {
+      console.error('updateTaskOrder error:', err);
+      fetchTasks();
+    }
+
+    setDragTask(null);
+  };
+
   const activeTasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'archived');
   const doneTasks = tasks.filter((t) => t.status === 'done');
 
@@ -97,44 +175,83 @@ export default function TaskListPanel() {
     ? searchResults.filter((t) => t.status === 'done')
     : doneTasks;
 
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tasks) {
+      try {
+        const tags: string[] = JSON.parse(t.tags || '[]');
+        tags.forEach((tag) => set.add(tag));
+      } catch {}
+    }
+    return Array.from(set).sort();
+  }, [tasks]);
+
+  // If in board or calendar mode, render those views
+  if (viewMode === 'board') {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200">
+            {getHeader()}
+          </h2>
+          <ViewSwitcher />
+        </div>
+        <BoardView />
+        <CommandPalette open={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
+      </div>
+    );
+  }
+
+  if (viewMode === 'calendar') {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200">
+            {getHeader()}
+          </h2>
+          <ViewSwitcher />
+        </div>
+        <CalendarView />
+        <CommandPalette open={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 h-full min-w-0">
       {/* Main task list area */}
       <div className={`flex-1 flex flex-col h-full ${selectedTaskId ? 'md:w-[calc(100%-320px)]' : ''}`}>
         {/* Header + Search */}
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200 flex-shrink-0">
-            {getHeader()}
-          </h2>
-          <div className="flex items-center gap-2 flex-1">
-            {/* Search */}
-            <div className="relative flex-1 max-w-xs ml-auto">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="搜索任务... (Ctrl+K)"
-                className="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              {searchQuery && (
-                <button
-                  onClick={() => handleSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  ×
-                </button>
-              )}
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200 flex-shrink-0">
+              {getHeader()}
+            </h2>
+            <div className="flex items-center gap-2">
+              <ViewSwitcher />
+              <div className="relative w-48">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="搜索... (Ctrl+K)"
+                  className="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <span className="text-xs text-slate-400 flex-shrink-0">
+                {displayActive.length} 个进行中
+              </span>
             </div>
-            <span className="text-xs text-slate-400 flex-shrink-0">
-              {displayActive.length} 个进行中
-            </span>
           </div>
+
+          {!searchQuery.trim() && allTags.length > 0 && (
+            <TagFilter tags={allTags} />
+          )}
         </div>
 
-        {/* Task input */}
         <TaskInput onSubmit={handleAddTask} />
 
         {/* Task list */}
@@ -159,6 +276,9 @@ export default function TaskListPanel() {
                   onToggle={toggleComplete}
                   onDelete={removeTask}
                   onEdit={(task) => selectTask(task.id)}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
                 />
               ))}
               {displayDone.length > 0 && !searchQuery.trim() && (
@@ -193,12 +313,10 @@ export default function TaskListPanel() {
         </div>
       </div>
 
-      {/* Edit Panel */}
       {selectedTaskId && <TaskEditPanel />}
 
-      {/* Quick Add Modal */}
       {showQuickAdd && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-start justify-center pt-20">
+        <div className="fixed inset-0 bg-black/30 z-40 flex items-start justify-center pt-20">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-[480px] overflow-hidden animate-slide-down">
             <QuickAdd
               lists={lists.filter((l) => !l.archived)}
@@ -208,6 +326,8 @@ export default function TaskListPanel() {
           </div>
         </div>
       )}
+
+      <CommandPalette open={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
 
       <style>{`
         @keyframes slideDown {
